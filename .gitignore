@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# highD source data and derived datasets
+data/
+datasets/
+raw/
+output/
+outputs/
+artifacts/
+*.csv
+*.parquet
+*.feather
+*.pickle
+*.pkl
+*.h5
+*.hdf5
+*_highway.jpg
+*_highway.png
+
+# Training artifacts must not enter this preprocessing repository
+*.pt
+*.pth
+*.ckpt
+*.zip
+*.rar
+*.gif

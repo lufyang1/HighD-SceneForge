@@ -1,41 +1,41 @@
 # HighD-SceneForge
 
-面向强化学习场景构建的 highD 数据预处理与交通密度扩充工具。
+A highD preprocessing and traffic-density augmentation toolkit for reinforcement learning scene construction.
 
-HighD-SceneForge 从用户本地的 highD CSV 文件中提取车辆进入道路时的状态，构建场景和车道状态，清除不完整轨迹及初始包围框冲突车辆，并通过高斯核密度估计（Gaussian KDE）生成可复现的高密度车辆入口事件。
+HighD-SceneForge extracts the state of each vehicle when it enters the road, constructs scene and lane state representations, removes incomplete trajectories and vehicles with conflicting initial bounding boxes, and generates reproducible high-density vehicle entry events using Gaussian kernel density estimation (Gaussian KDE).
 
-> 本仓库只包含处理代码，不包含 highD 原始数据、处理后的 CSV、道路背景图或训练模型。使用者需要自行申请 highD 数据并遵守其许可条款。
+> This repository contains processing code only. It does not include the original highD dataset, processed CSV files, road background images, or trained models. Users must obtain highD separately and comply with its license terms.
 
-## 功能
+## Features
 
-- 保留每辆车进入场景时的位置、尺寸、速度、加速度、车道和车辆类别。
-- 从 `recordingMeta` 解析道路、车道边界、行驶方向和场景元数据。
-- 在每个车辆进入时刻统计各车道车辆数、平均速度、速度标准差、密度和占有率。
-- 清除帧不连续、静态元数据不一致、从道路中部突然出现或提前消失的轨迹。
-- 使用车辆长宽形成的轴对齐矩形检查进入场景时的包围框碰撞。
-- 按车道使用 Gaussian KDE 采样进入时刻、速度及车辆长宽，提高场景拥挤度。
-- 对合成车辆执行边界约束和基于匀速投影的入口碰撞过滤。
-- 提供命令行接口、Python API、固定随机种子和单元测试。
+- Preserve each vehicle's entry position, dimensions, velocity, acceleration, lane, and class.
+- Parse road geometry, lane boundaries, driving direction, and recording metadata from `recordingMeta`.
+- Calculate per-lane vehicle count, mean speed, speed standard deviation, density, and occupancy at each vehicle entry frame.
+- Remove trajectories with discontinuous frames, inconsistent static metadata, mid-road appearances, or premature disappearances.
+- Detect entry conflicts using axis-aligned rectangles constructed from vehicle length and width.
+- Sample entry frames, velocities, and vehicle dimensions per lane with Gaussian KDE to increase traffic density.
+- Apply lane-boundary constraints and constant-velocity projected collision filtering to synthetic vehicles.
+- Provide a command-line interface, Python API, deterministic random seeds, and unit tests.
 
-## 处理流程
+## Processing Pipeline
 
 ```mermaid
 flowchart LR
-    A[highD tracks.csv] --> D[轨迹完整性检查]
+    A[highD tracks.csv] --> D[Trajectory integrity checks]
     B[highD tracksMeta.csv] --> D
-    C[highD recordingMeta.csv] --> E[场景与车道解析]
-    D --> F[入口状态提取]
+    C[highD recordingMeta.csv] --> E[Scene and lane parsing]
+    D --> F[Entry-state extraction]
     E --> F
-    F --> G[初始矩形碰撞过滤]
-    G --> H[基础 RL 场景]
-    H --> I[Gaussian KDE 按车道采样]
-    I --> J[边界和投影碰撞过滤]
-    J --> K[高密度 RL 场景]
+    F --> G[Initial rectangle collision filtering]
+    G --> H[Base RL scene]
+    H --> I[Per-lane Gaussian KDE sampling]
+    I --> J[Boundary and projected collision filtering]
+    J --> K[High-density RL scene]
 ```
 
-## 安装
+## Installation
 
-建议使用 Python 3.10 或更高版本。
+Python 3.10 or later is recommended.
 
 ```bash
 git clone https://github.com/lufyang1/HighD-SceneForge.git
@@ -43,30 +43,30 @@ cd HighD-SceneForge
 python -m pip install -e .
 ```
 
-安装开发依赖：
+Install development dependencies with:
 
 ```bash
 python -m pip install -e ".[dev]"
 ```
 
-## highD 文件准备
+## Preparing highD Files
 
-从 [highD 官方网站](https://www.highd-dataset.com/) 获取数据。每个 recording 需要以下三个文件：
+Obtain the dataset from the [official highD website](https://www.highd-dataset.com/). Each recording requires the following three files:
 
 ```text
 highD-data/
-├── 01_tracks.csv
-├── 01_tracksMeta.csv
-└── 01_recordingMeta.csv
+|-- 01_tracks.csv
+|-- 01_tracksMeta.csv
+`-- 01_recordingMeta.csv
 ```
 
-道路背景图不是必需输入。本项目不会修改或复制原始 highD 文件。
+Road background images are not required. HighD-SceneForge never modifies or copies the source highD files.
 
-## 快速开始
+## Quick Start
 
-### 一次完成场景构建和密度扩充
+### Build and augment a scene in one command
 
-下面的命令先构建 recording 01 的基础场景，再按每条车道基础车辆数的 50% 生成额外车辆：
+The following command builds a base scene for recording 01 and attempts to add 50% more vehicles relative to the base vehicle count in each lane:
 
 ```bash
 highd-sceneforge pipeline \
@@ -77,7 +77,7 @@ highd-sceneforge pipeline \
   --seed 42
 ```
 
-Windows PowerShell 示例：
+Windows PowerShell example:
 
 ```powershell
 highd-sceneforge pipeline `
@@ -88,9 +88,9 @@ highd-sceneforge pipeline `
   --seed 42
 ```
 
-`--additional-density 0.5` 表示尝试在每条车道增加基础入口车辆数的 50%，不是将总车辆数设置为原来的 50%。碰撞过滤可能使最终增加数量略低于请求值，实际数量记录在 `augmentation_report.json` 中。
+`--additional-density 0.5` requests additional vehicles equal to 50% of the base entry count in each lane. It does not set the final vehicle count to 50% of the original. Collision filtering may prevent some requested vehicles from being inserted; the actual counts are recorded in `augmentation_report.json`.
 
-### 只构建和清洗基础场景
+### Build and clean a base scene only
 
 ```bash
 highd-sceneforge build \
@@ -100,7 +100,7 @@ highd-sceneforge build \
   --output-dir output/scene_01
 ```
 
-### 对已有场景执行密度扩充
+### Augment an existing scene
 
 ```bash
 highd-sceneforge augment \
@@ -110,56 +110,56 @@ highd-sceneforge augment \
   --seed 42
 ```
 
-`--additional-density 1.0` 表示尝试额外生成与基础入口车辆数相同的车辆，即目标总量约为基础场景的 2 倍。
+`--additional-density 1.0` requests as many additional vehicles as there are base vehicles, targeting approximately twice the original scene population.
 
-## 输出文件
+## Output Files
 
-基础场景目录包含：
+The base scene directory contains:
 
-| 文件 | 内容 |
+| File | Description |
 |---|---|
-| `vehicle_entries.csv` | 清洗后车辆进入场景时的状态 |
-| `lane_states.csv` | 每个入口时刻的逐车道交通状态 |
-| `rejected_vehicles.csv` | 被清除车辆及原因 |
-| `scene.json` | recording 信息、车道边界、参数和处理摘要 |
+| `vehicle_entries.csv` | Entry states of vehicles that passed the cleaning filters |
+| `lane_states.csv` | Per-lane traffic state at every vehicle entry frame |
+| `rejected_vehicles.csv` | Rejected vehicle IDs and rejection reasons |
+| `scene.json` | Recording metadata, lane definitions, configuration, and processing summary |
 
-密度扩充目录包含：
+The augmented scene directory contains:
 
-| 文件 | 内容 |
+| File | Description |
 |---|---|
-| `vehicle_entries_augmented.csv` | 原始入口车辆与合成车辆 |
-| `scene_augmented.json` | 场景信息及扩充摘要 |
-| `augmentation_report.json` | 请求数量、通过安全过滤的数量和实际密度倍率 |
-| `lane_entry_counts.csv` | 各车道真实/合成入口车辆数 |
+| `vehicle_entries_augmented.csv` | Original and synthetic vehicle entry states |
+| `scene_augmented.json` | Scene metadata and augmentation summary |
+| `augmentation_report.json` | Requested, accepted, and rejected candidate counts and achieved density multiplier |
+| `lane_entry_counts.csv` | Real and synthetic entry counts for each lane |
 
-`vehicle_entries.csv` 的主要字段：
+Main fields in `vehicle_entries.csv`:
 
-| 字段 | 含义 |
+| Field | Description |
 |---|---|
-| `frame` | 车辆首次出现的帧 |
-| `track_id` | highD 轨迹编号；合成车辆使用新的递增编号 |
-| `bbox_x`, `bbox_y` | highD 左上角包围框坐标 |
-| `length`, `width` | 车辆纵向长度和横向宽度 |
-| `x`, `y` | 包围框中心坐标 |
-| `velocity_x`, `velocity_y` | 进入场景时的速度 |
-| `acceleration_x`, `acceleration_y` | 进入场景时的加速度 |
-| `lane_id` | highD 车道编号 |
-| `vehicle_class` | `Car` 或 `Truck` |
-| `is_synthetic` | 是否由 Gaussian KDE 生成 |
+| `frame` | First frame in which the vehicle appears |
+| `track_id` | Original highD track ID; synthetic vehicles receive new increasing IDs |
+| `bbox_x`, `bbox_y` | Top-left bounding-box coordinates in the highD coordinate system |
+| `length`, `width` | Longitudinal vehicle length and lateral vehicle width |
+| `x`, `y` | Bounding-box center coordinates |
+| `velocity_x`, `velocity_y` | Velocity at scene entry |
+| `acceleration_x`, `acceleration_y` | Acceleration at scene entry |
+| `lane_id` | highD lane ID |
+| `vehicle_class` | `Car` or `Truck` |
+| `is_synthetic` | Whether the entry was generated by Gaussian KDE |
 
-## 清洗规则
+## Trajectory Cleaning Rules
 
-默认情况下，一条轨迹需要同时满足以下条件：
+By default, a trajectory must satisfy all of the following conditions:
 
-1. 帧编号连续。
-2. CSV 中的首尾帧和帧数与 `tracksMeta` 一致。
-3. 非第 1 帧出现的车辆必须从对应行驶方向的道路边缘进入。
-4. 非录像最后一帧消失的车辆必须从对应道路边缘驶出。
-5. 车辆首次出现时的长宽矩形不得与已经存在的车辆矩形重叠。
+1. Frame numbers are continuous.
+2. The first frame, last frame, and frame count in the track CSV agree with `tracksMeta`.
+3. Unless it appears in the first recording frame, the vehicle must enter from the correct road edge for its driving direction.
+4. Unless it remains visible through the last recording frame, the vehicle must leave through the correct road edge for its driving direction.
+5. The vehicle's length-width rectangle at its first frame must not overlap an already active vehicle rectangle.
 
-第 3、4 项用于清除检测中断或突然出现在道路中部的轨迹。录像开始前已经进入道路、或录像结束后仍在道路内的车辆不会仅因为记录边界而被删除。
+Rules 3 and 4 remove interrupted detections and trajectories that abruptly appear or disappear in the middle of the road. Vehicles already present when recording begins, or still present when recording ends, are not rejected solely because of the recording boundary.
 
-常用参数：
+Common configuration options:
 
 ```text
 --road-length 420
@@ -168,19 +168,19 @@ highd-sceneforge augment \
 --allow-incomplete-exit
 ```
 
-如只关心车辆进入状态，可使用 `--allow-incomplete-exit` 关闭驶出边界检查。
+Use `--allow-incomplete-exit` to disable the exit-edge check when only vehicle entry states are needed.
 
-## Gaussian KDE 密度扩充
+## Gaussian KDE Density Augmentation
 
-扩充过程按车道独立执行：
+Augmentation is performed independently for each lane:
 
-1. 从清洗后的真实入口事件估计进入帧、纵向速度、横向速度及车辆长宽分布。
-2. 通过 Gaussian KDE 生成候选车辆；样本过少或协方差退化时自动回退到受限高斯采样。
-3. 根据车道方向将车辆放置在道路入口，并将横向位置限制在车道边界内。
-4. 使用已进入车辆的速度进行匀速位置投影，删除会产生矩形碰撞或违反间距约束的候选车辆。
-5. 保存随机种子、请求数量、接受数量和最终密度倍率，保证实验可复现。
+1. Estimate distributions for entry frame, longitudinal velocity, lateral velocity, and vehicle dimensions from cleaned real entry events.
+2. Generate candidate vehicles with Gaussian KDE. When the sample is too small or its covariance is degenerate, fall back to bounded Gaussian sampling.
+3. Place each candidate at the correct road entrance for the lane's driving direction and constrain its lateral position to the lane boundaries.
+4. Project previously entered vehicles with a constant-velocity model and reject candidates that cause a rectangle collision or violate the configured clearance.
+5. Store the random seed, requested count, accepted count, rejected count, and achieved density multiplier for reproducibility.
 
-该扩充方法用于构造强化学习压力测试场景，不用于恢复 highD 中未观测到的真实车辆轨迹。合成车辆只包含入口状态，后续轨迹应由仿真环境或车辆动力学模型生成。
+This augmentation method is intended for constructing reinforcement learning stress-test scenarios. It does not attempt to recover real vehicles that were unobserved in highD. Synthetic vehicles contain entry states only; subsequent trajectories should be produced by a simulation environment or vehicle dynamics model.
 
 ## Python API
 
@@ -202,33 +202,33 @@ augment_scene(
 )
 ```
 
-## 测试
+## Testing
 
-测试使用代码生成的微型 DataFrame，不包含 highD 数据。
+The tests use small DataFrames generated in code and do not contain highD data.
 
 ```bash
 pytest
 ```
 
-## 数据与隐私保护
+## Data Protection
 
-`.gitignore` 会忽略常见数据目录、所有 CSV、pickle、道路背景图和模型文件。提交前仍建议运行：
+The repository's `.gitignore` excludes common data directories, all CSV and pickle files, road background images, model files, and generated outputs. Before committing, it is still good practice to run:
 
 ```bash
 git status --short
 git ls-files
 ```
 
-确认版本控制中只有源码、测试和文档。
+Confirm that only source code, tests, and documentation are tracked.
 
-## 数据集引用
+## Dataset Citation
 
-如在研究中使用 highD，请按照 highD 官方要求申请数据并引用原始数据集论文：
+When using highD in research, obtain it under the terms stated by its maintainers and cite the original dataset paper:
 
 > Krajewski, R. et al. The highD Dataset: A Drone Dataset of Naturalistic Vehicle Trajectories on German Highways for Validation of Highly Automated Driving Systems. ITSC, 2018.
 
-HighD-SceneForge 是独立的数据处理工具，与 highD 数据集维护方无隶属关系。
+HighD-SceneForge is an independent data-processing tool and is not affiliated with the highD dataset maintainers.
 
 ## License
 
-代码采用 [MIT License](LICENSE)。highD 数据集不受本仓库 MIT License 约束。
+The source code is released under the [MIT License](LICENSE). The highD dataset is not covered by this repository's MIT License.
